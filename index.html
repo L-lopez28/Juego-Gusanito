@@ -1,0 +1,285 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Gusanito Pac-Man</title>
+<style>
+    body {
+        margin: 0;
+        background: #000;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        overflow: hidden;
+        font-family: Arial, sans-serif;
+    }
+
+    canvas {
+        border: 4px solid #00f;
+        box-shadow: 0 0 20px #00f;
+        background: #000;
+    }
+
+    #info {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        color: yellow;
+        font-size: 24px;
+        font-weight: bold;
+        text-shadow: 0 0 10px yellow;
+    }
+
+    #mensaje {
+        position: absolute;
+        color: white;
+        font-size: 36px;
+        text-align: center;
+        display: none;
+        text-shadow: 0 0 15px #fff;
+    }
+
+    button {
+        margin-top: 20px;
+        padding: 12px 24px;
+        font-size: 20px;
+        border: none;
+        border-radius: 10px;
+        background: yellow;
+        color: black;
+        cursor: pointer;
+        font-weight: bold;
+    }
+
+    button:hover {
+        background: orange;
+    }
+</style>
+</head>
+<body>
+
+<div id="info">Puntos: 0</div>
+
+<div id="mensaje">
+    <div>👻 ¡GAME OVER! 👻</div>
+    <button onclick="reiniciar()">Jugar de Nuevo</button>
+</div>
+
+<canvas id="juego" width="600" height="600"></canvas>
+
+<script>
+const canvas = document.getElementById("juego");
+const ctx = canvas.getContext("2d");
+
+const grid = 20;
+const tiles = canvas.width / grid;
+
+let gusano;
+let comida;
+let puntos;
+let velocidad;
+let gameOver = false;
+
+const colores = [
+    "#ff0000", "#00ff00", "#00ffff",
+    "#ff00ff", "#ffff00", "#ffa500",
+    "#ffffff"
+];
+
+function iniciarJuego() {
+    gusano = {
+        x: 10,
+        y: 10,
+        dx: 1,
+        dy: 0,
+        cuerpo: [{x:10, y:10}],
+        creciendo: false
+    };
+
+    comida = generarComida();
+    puntos = 0;
+    velocidad = 120;
+    gameOver = false;
+
+    document.getElementById("info").textContent = "Puntos: 0";
+    document.getElementById("mensaje").style.display = "none";
+
+    clearInterval(loop);
+    loop = setInterval(actualizar, velocidad);
+}
+
+function generarComida() {
+    return {
+        x: Math.floor(Math.random() * tiles),
+        y: Math.floor(Math.random() * tiles)
+    };
+}
+
+function actualizar() {
+    if (gameOver) return;
+
+    // Nueva cabeza
+    const cabeza = {
+        x: gusano.cuerpo[0].x + gusano.dx,
+        y: gusano.cuerpo[0].y + gusano.dy
+    };
+
+    // Teletransporte tipo Pac-Man
+    if (cabeza.x < 0) cabeza.x = tiles - 1;
+    if (cabeza.x >= tiles) cabeza.x = 0;
+    if (cabeza.y < 0) cabeza.y = tiles - 1;
+    if (cabeza.y >= tiles) cabeza.y = 0;
+
+    // Choca consigo mismo
+    for (let parte of gusano.cuerpo) {
+        if (parte.x === cabeza.x && parte.y === cabeza.y) {
+            terminarJuego();
+            return;
+        }
+    }
+
+    gusano.cuerpo.unshift(cabeza);
+
+    // Comer comida
+    if (cabeza.x === comida.x && cabeza.y === comida.y) {
+        puntos++;
+        document.getElementById("info").textContent = "Puntos: " + puntos;
+        comida = generarComida();
+
+        // Aumenta velocidad cada 5 puntos
+        if (puntos % 5 === 0 && velocidad > 50) {
+            velocidad -= 10;
+            clearInterval(loop);
+            loop = setInterval(actualizar, velocidad);
+        }
+    } else {
+        gusano.cuerpo.pop();
+    }
+
+    dibujar();
+}
+
+function dibujar() {
+    // Fondo negro
+    ctx.fillStyle = "black";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Dibujar puntos decorativos tipo Pac-Man
+    ctx.fillStyle = "#444";
+    for (let i = 0; i < tiles; i++) {
+        for (let j = 0; j < tiles; j++) {
+            ctx.beginPath();
+            ctx.arc(i * grid + grid/2, j * grid + grid/2, 2, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+
+    // Comida brillante
+    ctx.fillStyle = "yellow";
+    ctx.beginPath();
+    ctx.arc(
+        comida.x * grid + grid/2,
+        comida.y * grid + grid/2,
+        grid/3,
+        0,
+        Math.PI * 2
+    );
+    ctx.fill();
+
+    // Gusano multicolor
+    gusano.cuerpo.forEach((parte, i) => {
+        ctx.fillStyle = colores[i % colores.length];
+        ctx.fillRect(parte.x * grid, parte.y * grid, grid - 2, grid - 2);
+
+        // Ojos en la cabeza
+        if (i === 0) {
+            ctx.fillStyle = "black";
+            ctx.fillRect(parte.x * grid + 5, parte.y * grid + 5, 3, 3);
+            ctx.fillRect(parte.x * grid + 12, parte.y * grid + 5, 3, 3);
+        }
+    });
+}
+
+function terminarJuego() {
+    gameOver = true;
+    document.getElementById("mensaje").style.display = "block";
+}
+
+function reiniciar() {
+    iniciarJuego();
+}
+
+// Controles con teclado
+document.addEventListener("keydown", e => {
+    switch (e.key) {
+        case "ArrowUp":
+            if (gusano.dy !== 1) {
+                gusano.dx = 0;
+                gusano.dy = -1;
+            }
+            break;
+        case "ArrowDown":
+            if (gusano.dy !== -1) {
+                gusano.dx = 0;
+                gusano.dy = 1;
+            }
+            break;
+        case "ArrowLeft":
+            if (gusano.dx !== 1) {
+                gusano.dx = -1;
+                gusano.dy = 0;
+            }
+            break;
+        case "ArrowRight":
+            if (gusano.dx !== -1) {
+                gusano.dx = 1;
+                gusano.dy = 0;
+            }
+            break;
+    }
+});
+
+// Controles táctiles para celular
+let startX = 0;
+let startY = 0;
+
+canvas.addEventListener("touchstart", e => {
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+});
+
+canvas.addEventListener("touchend", e => {
+    let endX = e.changedTouches[0].clientX;
+    let endY = e.changedTouches[0].clientY;
+
+    let dx = endX - startX;
+    let dy = endY - startY;
+
+    if (Math.abs(dx) > Math.abs(dy)) {
+        if (dx > 0 && gusano.dx !== -1) {
+            gusano.dx = 1;
+            gusano.dy = 0;
+        } else if (dx < 0 && gusano.dx !== 1) {
+            gusano.dx = -1;
+            gusano.dy = 0;
+        }
+    } else {
+        if (dy > 0 && gusano.dy !== -1) {
+            gusano.dx = 0;
+            gusano.dy = 1;
+        } else if (dy < 0 && gusano.dy !== 1) {
+            gusano.dx = 0;
+            gusano.dy = -1;
+        }
+    }
+});
+
+let loop;
+iniciarJuego();
+</script>
+
+</body>
+</html>
